@@ -1,0 +1,10 @@
+pandas
+joblib
+scikit-learn
+statsmodels
+bandit
+flake8
+black
+uvicorn
+flask 
+numpy
