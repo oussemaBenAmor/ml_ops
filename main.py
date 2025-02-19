@@ -16,7 +16,7 @@ from model_pipeline import (
     load_model,
 )
 
-mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_tracking_uri("http://localhost:5001")
 mlflow.set_experiment("Churn_Prediction_Experiment")
 # Define file paths
 train_path = "churn-bigml-80.csv"
