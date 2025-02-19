@@ -8,3 +8,7 @@ black
 uvicorn
 flask 
 numpy
+mlflow
+matplotlib 
+seaborn
+
