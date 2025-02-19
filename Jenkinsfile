@@ -30,13 +30,16 @@ pipeline {
             }
         }
 
-        
         stage('Prepare Data') {
             when {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Prepare Data' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 && python main.py --prepare'
+                sh '''
+                    . ${VENV_DIR}/bin/activate && \
+                    mlflow ui --host 0.0.0.0 --port 5001 & \
+                    python main.py --prepare
+                '''
             }
         }
 
@@ -45,7 +48,11 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Train Model' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 && python main.py --train'
+                sh '''
+                    . ${VENV_DIR}/bin/activate && \
+                    mlflow ui --host 0.0.0.0 --port 5001 & \
+                    python main.py --train
+                '''
             }
         }
 
@@ -54,7 +61,11 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Evaluate Model' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 && python main.py --evaluate'
+                sh '''
+                    . ${VENV_DIR}/bin/activate && \
+                    mlflow ui --host 0.0.0.0 --port 5001 & \
+                    python main.py --evaluate
+                '''
             }
         }
         
@@ -63,7 +74,11 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Improve Model' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 && python main.py --improve'
+                sh '''
+                    . ${VENV_DIR}/bin/activate && \
+                    mlflow ui --host 0.0.0.0 --port 5001 & \
+                    python main.py --improve
+                '''
             }
         }
 
