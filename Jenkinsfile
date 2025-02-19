@@ -31,13 +31,14 @@ pipeline {
         }
 
         stage('Deploy mlflow') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Deploy mlflow' }
-            }
-            steps {
-                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 & '
-            }
-        }
+    when {
+        expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Deploy mlflow' }
+    }
+    steps {
+        sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001'
+    }
+}
+
         
         stage('Prepare Data') {
             when {
