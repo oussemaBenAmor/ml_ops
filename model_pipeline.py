@@ -94,17 +94,27 @@ def train_model(X_train, y_train):
 
 
 def evaluate_model(model, X_test, y_test):
-    y_pred = model.predict(X_test)
+    # Make predictions
+	y_pred = model.predict(X_test)
 
-    cm = confusion_matrix(y_test, y_pred)
-    print("Confusion Matrix:")
-    print(cm)
+    # Generate confusion matrix
+	cm = confusion_matrix(y_test, y_pred)
+	print("Confusion Matrix:")
+	print(cm)
 
-    # Affichage des métriques
-    print("Accuracy:", accuracy_score(y_test, y_pred))
-    print("Precision:", precision_score(y_test, y_pred))
-    print("Recall:", recall_score(y_test, y_pred))
-    print("F1 Score:", f1_score(y_test, y_pred))
+    # Compute and print evaluation metrics
+	accuracy = accuracy_score(y_test, y_pred)
+	precision = precision_score(y_test, y_pred)
+	recall = recall_score(y_test, y_pred)
+	f1 = f1_score(y_test, y_pred)
+
+	print("Accuracy:", accuracy)
+	print("Precision:", precision)
+	print("Recall:", recall)
+	print("F1 Score:", f1)
+
+    # Return the metrics as a tuple
+	return accuracy, precision, recall,f1,cm
 
 
 def improve_model(X_train, y_train, X_test, y_test):
@@ -143,6 +153,7 @@ def improve_model(X_train, y_train, X_test, y_test):
 
     # Meilleur modèle après GridSearchCV
     best_svm = clf.best_estimator_
+    best_params = clf.best_params_
 
     # Prédiction avec le meilleur modèle
     y_pred_best_svm = best_svm.predict(X_test)
@@ -158,7 +169,7 @@ def improve_model(X_train, y_train, X_test, y_test):
     print("Recall:", recall_score(y_test, y_pred_best_svm, zero_division=1))
     print("F1 Score:", f1_score(y_test, y_pred_best_svm, zero_division=1))
 
-    return best_svm
+    return best_svm , best_params
 
 
 def save_model(model, filename="best_svm_model.pkl"):
