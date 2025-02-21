@@ -246,13 +246,13 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
         mlflow.log_metric("f1_score", f1)
 
     # Define the local storage path
-    local_storage_path = r"C:\Users\MSI\Desktop\ml_ops\ml\project\svm_model.joblib"
+
 
 
 
 
     # Save the model locally to the specified path
-    dump(model, local_storage_path)
+    dump(model,  "svm_model.joblib")
 
     # Return response
     return accuracy, precision, recall, f1
