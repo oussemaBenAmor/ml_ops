@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>ML.Tech - Churn Prediction</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="" name="keywords">
+    <meta content="" name="description">
+
+    <!-- Favicon -->
+    <link href="{{ url_for('static', filename='img/logo.png') }}" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Ubuntu:wght@500;700&display=swap"
+        rel="stylesheet">
+
+    <!-- Icon Font Stylesheet -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.4.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="{{ url_for('static', filename='lib/animate/animate.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='lib/owlcarousel/assets/owl.carousel.min.css') }}" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
+
+    <!-- Template Stylesheet -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Spinner Start -->
+    
+
+    <!-- Navbar Start -->
+    <div class="container-fluid sticky-top">
+        <div class="container">
+            <nav class="navbar navbar-expand-lg navbar-dark p-0">
+                <a href="#" class="navbar-brand">
+                    <h1 class="text-white">AI<span class="text-dark">.</span>Tech</h1>
+                </a>
+                <button type="button" class="navbar-toggler ms-auto me-0" data-bs-toggle="collapse"
+                    data-bs-target="#navbarCollapse">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarCollapse">
+                    <div class="navbar-nav ms-auto">
+                        <a href="{{ url_for('home') }}" class="nav-item nav-link">Home</a>
+                        <div class="nav-item dropdown">
+                            <a href="#" class="nav-link dropdown-toggle active" data-bs-toggle="dropdown">Model</a>
+                            <div class="dropdown-menu bg-light mt-2">
+                                <a href="{{ url_for('SVM_open') }}" class="dropdown-item ">svm</a>
+                                <a href="{{ url_for('retrain_page') }}" class="dropdown-item">NEW SVM</a>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('team') }}" class="nav-item nav-link">Team</a>
+                    </div>
+                </div>
+            </nav>
+        </div>
+    </div>
+    <!-- Navbar End -->
+
+    <!-- Hero Start -->
+    <div class="container-fluid pt-5 bg-primary hero-header">
+        <div class="container pt-5">
+            <div class="row g-5 pt-5">
+                <div class="col-lg-6 align-self-center text-center text-lg-start mb-lg-5">
+                    <h1 class="display-4 text-white mb-4 animated slideInRight">SVM model</h1>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb justify-content-center justify-content-lg-start mb-0">
+                            <li class="breadcrumb-item text-white active" aria-current="page">DevElites</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div class="col-lg-6 align-self-end text-center text-lg-end">
+                    <img class="img-fluid" src="{{ url_for('static', filename='img/hero-img.png') }}" alt="Hero Image"
+                        style="max-height: 300px;">
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Hero End -->
+
+    <!-- Retrain SVM Model Form -->
+    <div class="container mt-5">
+        <h2 class="text-center">Retrain SVM Model</h2>
+        <form id="retrain-form">
+            <div class="mb-3">
+                <label for="C" class="form-label">C Value:</label>
+                <input type="number" step="0.01" class="form-control" id="C" name="C" value="1.0" required>
+            </div>
+            <div class="mb-3">
+                <label for="kernel" class="form-label">Kernel Type:</label>
+                <select class="form-control" id="kernel" name="kernel">
+                    <option value="linear">Linear</option>
+                    <option value="poly">Polynomial</option>
+                    <option value="rbf" selected>RBF</option>
+                    <option value="sigmoid">Sigmoid</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="degree" class="form-label">Degree (for Poly kernel):</label>
+                <input type="number" class="form-control" id="degree" name="degree" value="3" required>
+            </div>
+            <div class="mb-3">
+                <label for="gamma" class="form-label">Gamma:</label>
+                <input type="text" class="form-control" id="gamma" name="gamma" value="scale" required>
+            </div>
+            <div class="mb-3">
+                <label for="coef0" class="form-label">Coef0 (for Poly/Sigmoid kernel):</label>
+                <input type="number" step="0.01" class="form-control" id="coef0" name="coef0" value="0.0" required>
+            </div>
+            <div class="mb-3">
+                <label for="random_state" class="form-label">Random State:</label>
+                <input type="number" class="form-control" id="random_state" name="random_state" value="42" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Retrain Model</button>
+        </form>
+        <div class="mt-4" id="result"></div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $("#retrain-form").on("submit", function(event) {
+                event.preventDefault();
+                $.ajax({
+                    url: "/retrain",
+                    type: "POST",
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        let resultHtml = `<h4>Model Retrained Successfully!</h4>
+                            <p><strong>Accuracy:</strong> ${response.accuracy}</p>
+                            <p><strong>Precision:</strong> ${response.precision}</p>
+                            <p><strong>Recall:</strong> ${response.recall}</p>
+                            <p><strong>F1 Score:</strong> ${response.f1}</p>`;
+                        $("#result").html(resultHtml).addClass("alert alert-success");
+                    },
+                    error: function(xhr) {
+                        $("#result").html(`<p class="text-danger">Error: ${xhr.responseJSON.error}</p>`).addClass("alert alert-danger");
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
