@@ -5,6 +5,8 @@ import pandas as pd
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from joblib import dump
+from sklearn.preprocessing import StandardScaler
+
 
 # Load initial model and scaler
 model = joblib.load('best_svm_model.pkl')

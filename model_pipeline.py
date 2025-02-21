@@ -58,6 +58,7 @@ def prepare_data(train_path, test_path):
     pd.DataFrame(X_test_st, columns=X_test.columns).to_csv("X_test.csv", index=False)
     y_train.to_csv("y_train.csv", index=False)
     y_test.to_csv("y_test.csv", index=False)
+    joblib.dump(scaler, "scaler.pkl")
     return  scaler, label_encoders
 
 
