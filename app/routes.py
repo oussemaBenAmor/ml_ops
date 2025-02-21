@@ -6,6 +6,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from joblib import dump
 
+# Load initial model and scaler
 model = joblib.load('best_svm_model.pkl')
 scaler = joblib.load('scaler.pkl')
 
@@ -88,20 +89,20 @@ def configure_routes(app):
 
     @app.route('/predict', methods=['POST'])
     def predict():
-        # Check if the form is submitted and retrieve the selected model
         if request.method == 'POST':
-            selected_model_name = request.form.get('model_select')
+            selected_model_name = request.form.get('model_select', '')
 
             # Load the appropriate model based on selection
-            if selected_model_name == "svm":
-                model = joblib.load('best_svm_model.pkl')
-            elif selected_model_name == "new_model":
-                model = joblib.load('new_model.joblib')
-            else:
-                return jsonify({"error": "Invalid model selected"}), 400
-
-            # Getting the form data (user inputs)
+            model = None
             try:
+                if selected_model_name == "svm":
+                    model = joblib.load('best_svm_model.pkl')
+                elif selected_model_name == "new_model":
+                    model = joblib.load('new_model.joblib')
+                else:
+                    return jsonify({"error": "Invalid model selected."}), 400
+
+                # Getting the form data
                 international_plan = int(request.form['international_plan'])
                 number_vmail_messages = float(request.form['number_vmail_messages'])
                 total_day_minutes = float(request.form['total_day_minutes'])
@@ -110,39 +111,34 @@ def configure_routes(app):
                 total_intl_minutes = float(request.form['total_intl_minutes'])
                 total_intl_calls = int(request.form['total_intl_calls'])
                 customer_service_calls = int(request.form['customer_service_calls'])
-            except KeyError as e:
-                return jsonify({"error": f"Missing field in form data: {str(e)}"}), 400
 
-            # Prepare the input data
-            data = {
-                'International plan': [international_plan],
-                'Number vmail messages': [number_vmail_messages],
-                'Total day minutes': [total_day_minutes],
-                'Total eve minutes': [total_eve_minutes],
-                'Total night minutes': [total_night_minutes],
-                'Total intl minutes': [total_intl_minutes],
-                'Total intl calls': [total_intl_calls],
-                'Customer service calls': [customer_service_calls]
-            }
+                # Prepare the input data for prediction (ensure features align)
+                data = {
+                    'International plan': [international_plan],
+                    'Number vmail messages': [number_vmail_messages],
+                    'Total day minutes': [total_day_minutes],
+                    'Total eve minutes': [total_eve_minutes],
+                    'Total night minutes': [total_night_minutes],
+                    'Total intl minutes': [total_intl_minutes],
+                    'Total intl calls': [total_intl_calls],
+                    'Customer service calls': [customer_service_calls]
+                }
 
-            input_df = pd.DataFrame(data)
-            input_df = scaler.transform(input_df)
+                input_df = pd.DataFrame(data)
+                input_df = scaler.transform(input_df)  # Ensure that `scaler` was correctly defined
 
-            # Predict using the selected model
-            prediction = model.predict(input_df)
+                # Make predictions
+                prediction = model.predict(input_df)
 
-            # Ensure prediction is a single value
-            if prediction.size == 0:
-                return jsonify({"error": "No prediction made."}), 500
+                if prediction.size == 0:
+                    return jsonify({"error": "No prediction made."}), 500
+                
+                prediction = prediction[0]
+
+                # Result logic
+                result = "The customer will not churn." if prediction == 0 else "The customer is likely to churn."
+
+                return jsonify({'result': result})
             
-            prediction = prediction[0]  # Get scalar value if prediction is an array
-
-            # Assign the result based on the prediction
-            if prediction == 0:
-                result = "The customer will not churn."
-            elif prediction == 1:
-                result = "The customer is likely to churn."
-            else:
-                return jsonify({"error": "Unexpected prediction result."}), 500
-
-            return jsonify({'result': result})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
