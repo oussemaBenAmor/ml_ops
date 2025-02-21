@@ -195,7 +195,9 @@ def load_model(filename="best_svm_model.pkl"):
 
 mlflow.set_tracking_uri("http://localhost:5001")
 def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
-     mlflow.set_experiment("Churn_Prediction_Experiment")
+    # Set the experiment name
+    mlflow.set_experiment("Churn_Prediction_Experiment")
+
     # Load datasets
     try:
         x_train = pd.read_csv("X_train.csv").values
@@ -241,6 +243,19 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
         mlflow.log_metric("accuracy", accuracy)
         mlflow.log_metric("precision", precision)
         mlflow.log_metric("recall", recall)
+        mlflow.log_metric("f1_score", f1)
+
+    # Define the local storage path
+    local_storage_path = r"C:\Users\MSI\Desktop\ml_ops\ml\project\svm_model.joblib"
+
+    # Ensure the directory exists
+    os.makedirs(os.path.dirname(local_storage_path), exist_ok=True)
+
+    # Save the model locally to the specified path
+    dump(model, local_storage_path)
+
+    # Return response
+    return accuracy, precision, recall, f1
         mlflow.log_metric("f1_score", f1)
 	local_storage_path = r"C:\Users\MSI\Desktop\ml_ops\ml\project\svm_model.joblib"
     # Save the model locally
