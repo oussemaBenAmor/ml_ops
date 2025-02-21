@@ -248,8 +248,8 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
     # Define the local storage path
     local_storage_path = r"C:\Users\MSI\Desktop\ml_ops\ml\project\svm_model.joblib"
 
-    # Ensure the directory exists
-    os.makedirs(os.path.dirname(local_storage_path), exist_ok=True)
+
+
 
     # Save the model locally to the specified path
     dump(model, local_storage_path)
