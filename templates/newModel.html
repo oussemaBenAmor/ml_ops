@@ -123,30 +123,34 @@
         </form>
         <div class="mt-4" id="result"></div>
     </div>
-
     <script>
-        $(document).ready(function() {
-            $("#retrain-form").on("submit", function(event) {
-                event.preventDefault();
-                $.ajax({
-                    url: "/retrain",
-                    type: "POST",
-                    data: $(this).serialize(),
-                    success: function(response) {
-                        let resultHtml = `<h4>Model Retrained Successfully!</h4>
-                            <p><strong>Accuracy:</strong> ${response.accuracy}</p>
-                            <p><strong>Precision:</strong> ${response.precision}</p>
-                            <p><strong>Recall:</strong> ${response.recall}</p>
-                            <p><strong>F1 Score:</strong> ${response.f1}</p>`;
-                        $("#result").html(resultHtml).addClass("alert alert-success");
-                    },
-                    error: function(xhr) {
-                        $("#result").html(`<p class="text-danger">Error: ${xhr.responseJSON.error}</p>`).addClass("alert alert-danger");
-                    }
-                });
+        // Bind the form submission using AJAX
+        document.getElementById("retrain-form").addEventListener("submit", function(event) {
+            event.preventDefault();  
+    
+            var formData = new FormData(this);  
+    
+            fetch('/retrain', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                Swal.fire({
+                     title: data.message,
+                     text: `Accuracy: ${data.accuracy}\nPrecision: ${data.precision}\nRecall: ${data.recall}\nF1 Score: ${data.f1}`,
+                     icon: 'success',
+                    confirmButtonText: 'OK'
+            });
+    
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Oops!', 'Something went wrong!', 'error');
             });
         });
     </script>
+    
 </body>
 
 </html>

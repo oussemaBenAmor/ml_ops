@@ -10,11 +10,17 @@ from sklearn.metrics import (
     f1_score,
     confusion_matrix,
 )
+import mlflow
+import mlflow.sklearn
+import pandas as pd
+from sklearn.svm import SVC
+
+from joblib import dump
 from sklearn.model_selection import GridSearchCV
 
 import joblib
 
-
+mlflow.set_tracking_uri("http://localhost:5001")
 def prepare_data(train_path, test_path):
 
     train_data = pd.read_csv(train_path)
@@ -184,3 +190,62 @@ def load_model(filename="best_svm_model.pkl"):
     model = joblib.load(filename)
     print(f" Model loaded from '{filename}'.")
     return model
+    
+    
+
+
+def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
+    # Load datasets
+    try:
+        x_train = pd.read_csv("X_train.csv").values
+        x_test = pd.read_csv("X_test.csv").values
+        y_train = pd.read_csv("y_train.csv").values
+        y_test = pd.read_csv("y_test.csv").values
+    except Exception as e:
+        print(f"Error loading datasets: {e}")
+        return None  # Exit function if datasets fail to load
+
+    # Initialize and train the SVM model
+    model = SVC(
+        C=C, 
+        kernel=kernel, 
+        degree=degree, 
+        gamma=gamma, 
+        coef0=coef0,  # Add coef0 here
+        random_state=random_state
+    )
+    model.fit(x_train, y_train)
+    
+    # Evaluate the model
+    y_pred = model.predict(x_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
+
+    # Log metrics and parameters to MLflow
+    with mlflow.start_run(run_name="Churn_Prediction_Experiment"):
+        # Log hyperparameters
+        mlflow.log_param("C", C)
+        mlflow.log_param("kernel", kernel)
+        mlflow.log_param("degree", degree)
+        mlflow.log_param("gamma", gamma)
+        mlflow.log_param("coef0", coef0)  # Log coef0
+        mlflow.log_param("random_state", random_state)
+
+        # Log model to MLflow
+        mlflow.sklearn.log_model(model, "model")
+
+        # Log metrics
+        mlflow.log_metric("accuracy", accuracy)
+        mlflow.log_metric("precision", precision)
+        mlflow.log_metric("recall", recall)
+        mlflow.log_metric("f1_score", f1)
+
+    # Save the model locally
+    dump(model, "svm_model.joblib")
+
+    # Return response
+    return accuracy, precision, recall, f1
+    
+    

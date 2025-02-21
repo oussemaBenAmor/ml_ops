@@ -6,6 +6,8 @@ from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from joblib import dump
 from sklearn.preprocessing import StandardScaler
+from model_pipeline import retraine_svm
+
 
 
 # Load initial model and scaler
@@ -35,59 +37,26 @@ def configure_routes(app):
 
     @app.route("/retrain", methods=["POST"])
     def retrain():
-        try:
-            # Load dataset
-            x_train = pd.read_csv("X_train.csv")
-            x_test = pd.read_csv("X_test.csv")
-            y_train = pd.read_csv("y_train.csv")
-            y_test = pd.read_csv("y_test.csv")
+        # Get hyperparameters from the request
+        C_values = float(request.form.get("C", 1.0))  # Default C = 1.0
+        kernel_type = request.form.get("kernel", "rbf")  # Default kernel = "rbf"
+        degree_value = int(request.form.get("degree", 3))  # Default degree = 3 (for poly kernel)
+        gamma_value = request.form.get("gamma", "scale")  # Default gamma = "scale"
+        coef0_value = float(request.form.get("coef0", 0.0))  # Default coef0 = 0.0
+        random_state = int(request.form.get("random_state", 42))  # Default random state
 
-            # Get hyperparameters from the request
-            C_values = float(request.form.get("C", 1.0))  # Default C = 1.0
-            kernel_type = request.form.get("kernel", "rbf")  # Default kernel = "rbf"
-            degree_value = int(request.form.get("degree", 3))  # Default degree = 3 (for poly kernel)
-            gamma_value = request.form.get("gamma", "scale")  # Default gamma = "scale"
-            coef0_value = float(request.form.get("coef0", 0.0))  # Default coef0 = 0.0
-            random_state = int(request.form.get("random_state", 42))  # Default random state
+        # Call the retrain function
+        accuracy, precision, recall, f1 = retraine_svm(
+            C_values, kernel_type, degree_value, gamma_value, coef0_value, random_state
+        )
 
-            # Initialize and train the SVM model
-            model = SVC(
-                C=C_values,
-                kernel=kernel_type,
-                degree=degree_value,
-                gamma=gamma_value,
-                coef0=coef0_value,
-                random_state=random_state,
-            )
-
-            model.fit(x_train, y_train.values.ravel())  # Ensure y_train is a 1D array
-
-            # Evaluate the model
-            y_pred = model.predict(x_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            precision = precision_score(y_test, y_pred, average="weighted")
-            recall = recall_score(y_test, y_pred, average="weighted")
-            f1 = f1_score(y_test, y_pred, average="weighted")
-
-            # Save the model
-            dump(model, "new_model.joblib")
-
-            # Return response
-            return jsonify({
-                "message": "SVM model retrained successfully!",
-                "C": C_values,
-                "kernel": kernel_type,
-                "degree": degree_value,
-                "gamma": gamma_value,
-                "coef0": coef0_value,
-                "random_state": random_state,
-                "accuracy": f"{accuracy:.2f}",
-                "precision": f"{precision:.2f}",
-                "recall": f"{recall:.2f}",
-                "f1": f"{f1:.2f}",
-            })
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+        # Return response with model metrics
+        return jsonify({
+            "accuracy": accuracy,
+            "precision": precision,
+            "recall": recall,
+            "f1": f1
+        })
 
     @app.route('/predict', methods=['POST'])
     def predict():
