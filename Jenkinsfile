@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         VENV_DIR = 'venv'  
-        MODEL_PATH = "best_svm_model.pkl"
+        MODEL_PATH = "${WORKSPACE}/best_svm_model.pkl"
+        MLFLOW_TRACKING_URI = "http://localhost:5001"
     }
 
     parameters {
@@ -27,18 +28,19 @@ pipeline {
             steps {
                 sh 'python3 -m venv ${VENV_DIR}'
                 sh '. ${VENV_DIR}/bin/activate && pip install -r requirements.txt'
+                sh 'chmod -R 777 ${WORKSPACE}'  // Add this line
             }
         }
 
-        stage('Deploy mlflow') {
+        stage('Start MLflow Server') {
             when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Deploy mlflow' }
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Start MLflow Server' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 & '
+                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 &'
             }
         }
-        
+
         stage('Prepare Data') {
             when {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Prepare Data' }
@@ -83,6 +85,5 @@ pipeline {
                 sh '. ${VENV_DIR}/bin/activate && python app.py'
             }
         }
-         
     }
 }
