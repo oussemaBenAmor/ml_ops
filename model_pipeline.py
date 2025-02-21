@@ -20,7 +20,7 @@ from sklearn.model_selection import GridSearchCV
 
 import joblib
 
-mlflow.set_tracking_uri("http://localhost:5001")
+
 def prepare_data(train_path, test_path):
 
     train_data = pd.read_csv(train_path)
@@ -193,8 +193,9 @@ def load_model(filename="best_svm_model.pkl"):
     
     
 
-
+mlflow.set_tracking_uri("http://localhost:5001")
 def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
+     mlflow.set_experiment("Churn_Prediction_Experiment")
     # Load datasets
     try:
         x_train = pd.read_csv("X_train.csv").values
@@ -224,7 +225,7 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
     f1 = f1_score(y_test, y_pred)
 
     # Log metrics and parameters to MLflow
-    with mlflow.start_run(run_name="Churn_Prediction_Experiment"):
+    with mlflow.start_run(run_name="new trained model"):
         # Log hyperparameters
         mlflow.log_param("C", C)
         mlflow.log_param("kernel", kernel)
