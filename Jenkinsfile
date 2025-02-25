@@ -28,7 +28,7 @@ pipeline {
             . ${VENV_DIR}/bin/activate
             ${VENV_DIR}/bin/black main.py model_pipeline.py
             ${VENV_DIR}/bin/flake8 --exit-zero main.py model_pipeline.py
-            ${VENV_DIR}/bin/bandit -r main.py model_pipeline.py
+            ${VENV_DIR}/bin/bandit  main.py model_pipeline.py
         '''
     }
 }
