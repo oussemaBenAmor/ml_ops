@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import statsmodels.api as sm
-import subprocess
+import subprocess 
 import psutil
 from sklearn.svm import SVC
 from sklearn.metrics import (
@@ -38,8 +38,9 @@ import seaborn as sns
 import psutil  # For system metrics
 
 
+
+
 from datetime import datetime
-import subprocess  # For generating requirements.txt
 
 
 def prepare_data(train_path, test_path):
@@ -403,6 +404,16 @@ def log_system_metrics_function():
     print(
         f"Logged system metrics: CPU Usage = {cpu_usage}%, Memory Usage = {memory_usage}%"
     )
+
+
+
+def log_data_files():
+    mlflow.log_artifact(X_train_file)
+    mlflow.log_artifact(X_test_file)
+    mlflow.log_artifact(y_train_file)
+    mlflow.log_artifact(y_test_file)
+    mlflow.log_artifact(requirements_file)
+    print("Data files logged as artifacts.")
 
 
 # Function to log ROC curve and AUC

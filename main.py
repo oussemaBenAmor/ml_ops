@@ -6,18 +6,10 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 import matplotlib.pyplot as plt
-import subprocess
+import subprocess 
 import seaborn as sns
 import psutil  # For system metrics
-from sklearn.metrics import (
-    roc_curve,
-    auc,
-    confusion_matrix,
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-)
+from sklearn.metrics import roc_curve, auc, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 from sklearn.svm import SVC
 from model_pipeline import (
     prepare_data,
@@ -28,10 +20,12 @@ from model_pipeline import (
     evaluate_model,
     log_system_metrics_function,
     log_roc_auc,
+    generate_requirements,
+    
 )
 from sklearn.model_selection import GridSearchCV
 from datetime import datetime
-import subprocess  # For generating requirements.txt
+
 
 mlflow.enable_system_metrics_logging()
 
@@ -67,15 +61,8 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# Function to log system metrics
-# Function to log data files as artifacts
-def log_data_files():
-    mlflow.log_artifact(X_train_file)
-    mlflow.log_artifact(X_test_file)
-    mlflow.log_artifact(y_train_file)
-    mlflow.log_artifact(y_test_file)
-    mlflow.log_artifact(requirements_file)
-    print("Data files logged as artifacts.")
+
+
 
 
 # Data preparation logic
