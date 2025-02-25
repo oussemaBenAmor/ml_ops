@@ -7,11 +7,11 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from joblib import dump
 from sklearn.preprocessing import StandardScaler
 from model_pipeline import retraine_svm
-
+from model_pipeline import load_model
 
 
 # Load initial model and scaler
-model = joblib.load('best_svm_model.pkl')
+#model = joblib.load('best_svm_model.pkl')
 scaler = joblib.load('scaler.pkl')
 
 def configure_routes(app):
@@ -66,13 +66,15 @@ def configure_routes(app):
             # Load the appropriate model based on selection
             model = None
             try:
+                model=load_model(deployment=selected_model_name)
+                """
                 if selected_model_name == "svm":
                     model = joblib.load('best_svm_model.pkl')
                 elif selected_model_name == "new_model":
                     model = joblib.load('new_model.joblib')
                 else:
                     return jsonify({"error": "Invalid model selected."}), 400
-
+                """
                 # Getting the form data
                 international_plan = int(request.form['international_plan'])
                 number_vmail_messages = float(request.form['number_vmail_messages'])

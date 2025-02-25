@@ -6,18 +6,31 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 import matplotlib.pyplot as plt
+import subprocess 
 import seaborn as sns
+import psutil  # For system metrics
+from sklearn.metrics import roc_curve, auc, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.svm import SVC
 from model_pipeline import (
     prepare_data,
     train_model,
-    evaluate_model,
     improve_model,
     save_model,
     load_model,
+    evaluate_model,
+    log_system_metrics,
+    log_roc_auc,
+    generate_requirements,
+    
 )
+from sklearn.model_selection import GridSearchCV
+from datetime import datetime
+import subprocess  # For generating requirements.txt
 
+# Set MLflow tracking URI and experiment
 mlflow.set_tracking_uri("http://localhost:5001")
 mlflow.set_experiment("Churn_Prediction_Experiment")
+
 # Define file paths
 train_path = "churn-bigml-80.csv"
 test_path = "churn-bigml-20.csv"
@@ -28,7 +41,6 @@ X_train_file = "X_train.csv"
 X_test_file = "X_test.csv"
 y_train_file = "y_train.csv"
 y_test_file = "y_test.csv"
-
 
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description="Train, evaluate, and improve an SVM model.")
@@ -41,165 +53,135 @@ parser.add_argument("--load", action="store_true", help="Load the saved model an
 
 args = parser.parse_args()
 
+# Function to log system metrics
+# Function to log data files as artifacts
+def log_data_files():
+    mlflow.log_artifact(X_train_file)
+    mlflow.log_artifact(X_test_file)
+    mlflow.log_artifact(y_train_file)
+    mlflow.log_artifact(y_test_file)
+    print("Data files logged as artifacts.")
+
+
+
 # Data preparation logic
 if args.prepare:
-	mlflow.end_run() 
-	with mlflow.start_run(run_name="SVM_preaparing_data"):
-		scaler, label_encoders = prepare_data(train_path, test_path)
-		print("Data preparation completed and saved.")
+    mlflow.end_run()
+    with mlflow.start_run(run_name="SVM_Preparing_Data"):
+        scaler, label_encoders = prepare_data(train_path, test_path)
+        print("Data preparation completed and saved.")
+
+        # Generate and log requirements.txt
+        requirements_path = generate_requirements()
+        mlflow.log_artifact(requirements_path)
+        print("requirements.txt logged as artifact.")
+
+        # Log data files
+        log_data_files()
+
+        log_system_metrics()  # Log system metrics
 
 # Check if prepared data exists before proceeding with other steps
-	if os.path.exists(X_train_file) and os.path.exists(X_test_file):
-    # Load saved data
-		X_train_st = pd.read_csv(X_train_file).values
-		X_test_st = pd.read_csv(X_test_file).values
-		y_train = pd.read_csv(y_train_file).values.ravel()
-		y_test = pd.read_csv(y_test_file).values.ravel()
-    
-  
-	else:
-		print("Prepared data not found. Run --prepare first.")
-		exit()
+if os.path.exists(X_train_file) and os.path.exists(X_test_file):
+    #  saved data
+    X_train_st = pd.read_csv(X_train_file).values
+    X_test_st = pd.read_csv(X_test_file).values
+    y_train = pd.read_csv(y_train_file).values.ravel()
+    y_test = pd.read_csv(y_test_file).values.ravel()
+else:
+    print("Prepared data not found. Run --prepare first.")
+    exit()
 
 svm_model = None
 
-# Load existing model if available
-if os.path.exists(model_path):
-	print("Existing model found. Loading...")
-	svm_model = load_model()
-else:
-	print("No existing model found.")
+
 
 # Training logic
 if args.train:
-	mlflow.end_run() 
-	with mlflow.start_run(run_name="SVM_training"):
-		print("Training the model...")
-		X_train_st = pd.read_csv(X_train_file).values
+    mlflow.end_run()
+    with mlflow.start_run(run_name="SVM_Training"):
+        print("Training the model...")
+        X_train_st = pd.read_csv(X_train_file).values
+        y_train = pd.read_csv(y_train_file).values.ravel()
 
-		y_train = pd.read_csv(y_train_file).values.ravel()
+        svm_model = train_model(X_train_st, y_train)
+        save_model(svm_model)
 
-		svm_model = train_model(X_train_st, y_train)
-		save_model(svm_model)
-		print("Model training complete.")
+        # Log model parameters
+        mlflow.log_param("model_type", "SVM")
+        mlflow.log_param("kernel", "default")  # Default kernel for initial training
+        mlflow.log_param("training_data", train_path)
+        log_system_metrics()  # Log system metrics
+        log_data_files()
 
+        print("Model training complete.")
 
-
-
-# Evaluation logic (only use existing model or trained one)
+# Evaluation logic
 if args.evaluate:
     if svm_model is None:
         print("No trained model available. Run training first.")
     else:
-        mlflow.end_run()  
-        with mlflow.start_run(run_name="SVM_Evaluation"):
-            loaded_model = load_model()
+        mlflow.end_run()  # End any existing run
+        with mlflow.start_run(run_name="SVM_Evaluation"):  # Start a new run
+            loaded_model = load_model(deployment=None)
             print("Evaluating the model...")
             X_test_st = pd.read_csv(X_test_file).values
             y_test = pd.read_csv(y_test_file).values.ravel()
-            
-            accuracy, precision, recall,f1,cm = evaluate_model(loaded_model, X_test_st, y_test)
-            
-            # Log the evaluation metrics
-            mlflow.log_metric("accuracy", accuracy)
-            mlflow.log_metric("precision", precision)
-            mlflow.log_metric("recall", recall)
-            mlflow.log_metric("f1 score", f1)
-            
-            # Optionally log confusion matrix as an artifact
 
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Negative", "Positive"], yticklabels=["Negative", "Positive"])
-            plt.ylabel("True Label")
-            plt.xlabel("Predicted Label")
-            plt.title("Confusion Matrix")
+            # Evaluate the model and log metrics
+            accuracy, precision, recall, f1, cm = evaluate_model(loaded_model, X_test_st, y_test)
 
-            # Save the confusion matrix plot
-            cm_image_path = "confusion_matrix.png"
-            plt.savefig(cm_image_path)
-
-            # Log confusion matrix artifact
-            mlflow.log_artifact(cm_image_path)
-            print(f"Confusion matrix image saved and logged as artifact: {cm_image_path}")
-
-# Improvement logic (uses an existing trained model)
-# Improvement logic (uses an existing trained model)
+# Improvement logic
 if args.improve:
     if svm_model is None:
         print("No trained model available. Run training first.")
     else:
-        # Run the grid search and improve the model
-        print("Improving the model...")
+        mlflow.end_run()
+        with mlflow.start_run(run_name="SVM_Improvement"):
+            print("Improving the model...")
+            X_train_st = pd.read_csv(X_train_file).values
+            X_test_st = pd.read_csv(X_test_file).values
+            y_train = pd.read_csv(y_train_file).values.ravel()
+            y_test = pd.read_csv(y_test_file).values.ravel()
 
-        # Load the previously saved data
-        X_train_st = pd.read_csv(X_train_file).values
-        X_test_st = pd.read_csv(X_test_file).values
-        y_train = pd.read_csv(y_train_file).values.ravel()
-        y_test = pd.read_csv(y_test_file).values.ravel()
+            # Improve the model
+            best_model, best_params = improve_model(X_train_st, y_train, X_test_st, y_test)
+            svm_model = best_model
 
-        # Improve the model and get the best model and its parameters
-        best_model, best_params = improve_model(X_train_st, y_train, X_test_st, y_test)
-        svm_model = best_model
+            # Log best hyperparameters
+            mlflow.log_params(best_params)
+            log_system_metrics()  # Log system metrics
+            log_data_files()
 
-        # Now that the model improvement is done, start the MLflow run
-        with mlflow.start_run(run_name="SVM_Model_Improvement"):
-            # Log parameters of the improved model
-            mlflow.log_param("C", best_params['C'])
-            mlflow.log_param("kernel", best_params['kernel'])
-            mlflow.log_param("degree", best_params['degree'])
+            # Evaluate the improved model and log artifacts
+            evaluate_model(svm_model, X_test_st, y_test, model_name="model")
 
-            # Log metrics of the improved model
-            accuracy, precision, recall, f1, confusion_matrix = evaluate_model(svm_model, X_test_st, y_test)
-            mlflow.log_metric("accuracy", accuracy)
-            mlflow.log_metric("precision", precision)
-            mlflow.log_metric("recall", recall)
-            mlflow.log_metric("f1 score", f1)
-
-            # Save the improved model and log it with MLflow
+            # Save the improved model
             save_model(svm_model)
-            mlflow.sklearn.log_model(svm_model, "best_model")
 
-            # Log confusion matrix as an artifact
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(confusion_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=["Negative", "Positive"], yticklabels=["Negative", "Positive"])
-            plt.ylabel("True Label")
-            plt.xlabel("Predicted Label")
-            plt.title("Confusion Matrix")
-
-            # Save the confusion matrix plot
-            cm_image_path = "confusion_matrix.png"
-            plt.savefig(cm_image_path)
-
-            # Log confusion matrix artifact
-            mlflow.log_artifact(cm_image_path)
-            print(f"Confusion matrix image saved and logged as artifact: {cm_image_path}")
-
-       
-# Save logic (only saves if a model is available)
+# Save logic
 if args.save:
     if svm_model is None:
         print("No trained model available to save.")
     else:
-        print("Saving the model...")
-        save_model(svm_model)
-        
-        with mlflow.start_run(run_name="SVM_Model_Saving"):
+        mlflow.end_run()
+        with mlflow.start_run(run_name="SVM_Saving"):
+            print("Saving the model...")
+            save_model(svm_model)
             mlflow.sklearn.log_model(svm_model, "final_saved_model")
-            # You can log metrics if you want
-            mlflow.log_metric("accuracy", accuracy)
-            mlflow.log_metric("f1_score", f1_score)
+            log_data_files()
+            log_system_metrics()  # Log system metrics
+
 # Load and evaluate saved model
 if args.load:
-	if os.path.exists(model_path):
-		print("Loading the saved model...")
-		loaded_model = load_model()
-		with mlflow.start_run(run_name="SVM_Loading_Evaluation"):
-			X_test_st = pd.read_csv(X_test_file).values
-			y_test = pd.read_csv(y_test_file).values.ravel()
-			accuracy, precision, recall = evaluate_model(loaded_model, X_test_st,y_test)
-			mlflow.log_metric("accuracy", accuracy)
-			mlflow.log_metric("precision", precision)
-			mlflow.log_metric("recall", recall)
-	else:
-		print("No saved model found. Train and save a model first.")
+    if os.path.exists(model_path):
+        mlflow.end_run()
+        with mlflow.start_run(run_name="SVM_Loading_Evaluation"):
+            print("Loading the saved model...")
+            loaded_model = load_model(deployment=None)
+            X_test_st = pd.read_csv(X_test_file).values
+            y_test = pd.read_csv(y_test_file).values.ravel()
 
+            evaluate_model(loaded_model, X_test_st, y_test)
+    else:
+        print("No saved model found. Train and save a model first.")

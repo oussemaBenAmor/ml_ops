@@ -123,6 +123,8 @@
         </form>
         <div class="mt-4" id="result"></div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script>
         // Bind the form submission using AJAX
         document.getElementById("retrain-form").addEventListener("submit", function(event) {
@@ -137,10 +139,13 @@
             .then(response => response.json())
             .then(data => {
                 Swal.fire({
-                     title: data.message,
-                     text: `Accuracy: ${data.accuracy}\nPrecision: ${data.precision}\nRecall: ${data.recall}\nF1 Score: ${data.f1}`,
-                     icon: 'success',
-                    confirmButtonText: 'OK'
+                    title: "Model Retrained Successfully!",
+            html: `<b>Accuracy:</b> ${data.accuracy} <br>
+                   <b>Precision:</b> ${data.precision} <br>
+                   <b>Recall:</b> ${data.recall} <br>
+                   <b>F1 Score:</b> ${data.f1}`,
+            icon: "success",
+            confirmButtonText: "OK"
             });
     
             })

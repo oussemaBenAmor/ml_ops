@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import statsmodels.api as sm
+import subprocess 
+import psutil
 from sklearn.svm import SVC
 from sklearn.metrics import (
     accuracy_score,
@@ -9,17 +11,37 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     confusion_matrix,
+    roc_curve,
+    auc,
 )
 import mlflow
 import mlflow.sklearn
+import seaborn as sns
+import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.svm import SVC
 
 from joblib import dump
 from sklearn.model_selection import GridSearchCV
 
-import joblib
 
+import argparse
+import os
+import pandas as pd
+import joblib
+import numpy as np
+import mlflow
+import mlflow.sklearn
+import matplotlib.pyplot as plt
+
+import seaborn as sns
+import psutil  # For system metrics
+
+
+
+
+from datetime import datetime
+import subprocess  # For generating requirements.txt
 
 def prepare_data(train_path, test_path):
 
@@ -97,32 +119,71 @@ def train_model(X_train, y_train):
 
     svm_model = SVC()
     svm_model.fit(X_train, y_train)
+    mlflow.sklearn.log_model(svm_model, "model")
     return svm_model
 
 
-def evaluate_model(model, X_test, y_test):
+def evaluate_model(model, X_test, y_test, model_name="model"):
     # Make predictions
-	y_pred = model.predict(X_test)
+    y_pred = model.predict(X_test)
 
     # Generate confusion matrix
-	cm = confusion_matrix(y_test, y_pred)
-	print("Confusion Matrix:")
-	print(cm)
+    cm = confusion_matrix(y_test, y_pred)
+    print("Confusion Matrix:")
+    print(cm)
 
-    # Compute and print evaluation metrics
-	accuracy = accuracy_score(y_test, y_pred)
-	precision = precision_score(y_test, y_pred)
-	recall = recall_score(y_test, y_pred)
-	f1 = f1_score(y_test, y_pred)
+    # Compute evaluation metrics
+    accuracy = accuracy_score(y_test, y_pred)
+    precision = precision_score(y_test, y_pred)
+    recall = recall_score(y_test, y_pred)
+    f1 = f1_score(y_test, y_pred)
 
-	print("Accuracy:", accuracy)
-	print("Precision:", precision)
-	print("Recall:", recall)
-	print("F1 Score:", f1)
+    # Print metrics for debugging
+    print(f"Accuracy: {accuracy}")
+    print(f"Precision: {precision}")
+    print(f"Recall: {recall}")
+    print(f"F1 Score: {f1}")
 
-    # Return the metrics as a tuple
-	return accuracy, precision, recall,f1,cm
+    # Log model parameters
+    if hasattr(model, "get_params"):
+        model_params = model.get_params()
+        mlflow.log_params(model_params)
+        print("Model parameters logged.")
 
+    # Log the model as an artifact
+    mlflow.sklearn.log_model(model, model_name)
+    print(f"Model logged as artifact with name: {model_name}")
+
+    # Log system metrics in the System Metrics page
+    log_system_metrics()
+
+    # Log confusion matrix as an artifact
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Negative", "Positive"], yticklabels=["Negative", "Positive"])
+    plt.ylabel("True Label")
+    plt.xlabel("Predicted Label")
+    plt.title("Confusion Matrix")
+
+    cm_image_path = "confusion_matrix.png"
+    plt.savefig(cm_image_path)
+    mlflow.log_artifact(cm_image_path)
+    print(f"Confusion matrix image saved and logged as artifact: {cm_image_path}")
+
+    # Log ROC curve and AUC
+    log_roc_auc(model, X_test, y_test)
+
+    # Log evaluation metrics
+    try:
+        mlflow.log_metric("accuracy", accuracy)
+        mlflow.log_metric("precision", precision)
+        mlflow.log_metric("recall", recall)
+        mlflow.log_metric("f1_score", f1)
+        print("Evaluation metrics logged.")
+        log_data_files()
+    except Exception as e:
+        print(f"Error logging metrics: {e}")
+
+    return accuracy, precision, recall, f1, cm
 
 def improve_model(X_train, y_train, X_test, y_test):
 
@@ -184,11 +245,74 @@ def save_model(model, filename="best_svm_model.pkl"):
     joblib.dump(model, filename)
     print(f" Model saved in file :: '{filename}'.")
 
-
+"""
 def load_model(filename="best_svm_model.pkl"):
 
     model = joblib.load(filename)
     print(f" Model loaded from '{filename}'.")
+    return model
+"""
+    
+def load_model(deployment):
+    
+    model = None  # Initialize model as None
+    training_runs = None
+    experiment_name = "Churn_Prediction_Experiment"
+
+# Get the experiment by name
+    experiment = mlflow.get_experiment_by_name(experiment_name)
+
+# Check if the experiment exists
+    if experiment:
+        experiment_id = experiment.experiment_id
+        print(f"Experiment ID for '{experiment_name}': {experiment_id}")
+    else:
+        print(f"Experiment '{experiment_name}' does not exist.")
+
+    # Step 1: Search for the most recent run
+    runs = mlflow.search_runs(
+        experiment_ids=[experiment_id], order_by=["start_time DESC"]
+    )
+
+    # Step 2: Filter runs based on deployment type
+    if deployment:
+        training_runs = runs[runs["tags.mlflow.runName"] == deployment]
+    else:
+        training_runs = runs[
+            runs["tags.mlflow.runName"].isin(["SVM_Training", "SVM_Improvement"])
+        ]
+
+    if not training_runs.empty:
+        # Get the latest run
+        latest_run = training_runs.iloc[0]
+        run_id = latest_run["run_id"]
+        run_name = latest_run["tags.mlflow.runName"]
+        print(f"Found Latest Run ID: {run_id} ({run_name})")
+
+        # List artifacts in the run
+        try:
+            artifacts = mlflow.artifacts.list_artifacts(run_id)
+            print("Artifacts in the run:")
+            for artifact in artifacts:
+                print(f" - {artifact.path}")
+        except Exception as e:
+            print(f"Error listing artifacts: {e}")
+
+        # Load the model
+        model_uri = f"runs:/{run_id}/model"
+        print(f"Model URI: {model_uri}")
+
+        try:
+            model = mlflow.sklearn.load_model(model_uri)
+            if model:
+                print("Model loaded successfully!")
+            else:
+                print("Failed to load the model.")
+        except Exception as e:
+            print(f"Error loading model: {e}")
+    else:
+        print("No matching run found in the default experiment.")
+
     return model
     
     
@@ -256,3 +380,52 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
 
     # Return response
     return accuracy, precision, recall, f1
+    
+    
+    
+    
+    
+def log_system_metrics():
+    cpu_usage = psutil.cpu_percent()
+    memory_usage = psutil.virtual_memory().percent
+    mlflow.log_metric("cpu_usage", cpu_usage)
+    mlflow.log_metric("memory_usage", memory_usage)
+    print(f"Logged system metrics: CPU Usage = {cpu_usage}%, Memory Usage = {memory_usage}%")
+
+# Function to log ROC curve and AUC
+def log_roc_auc(model, X_test, y_test):
+    # Get predicted probabilities for the positive class
+    y_pred_proba = model.decision_function(X_test)
+    
+    # Compute ROC curve and AUC
+    fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+    roc_auc = auc(fpr, tpr)
+    
+    # Plot ROC curve
+    plt.figure()
+    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
+    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.legend(loc="lower right")
+    
+    # Save ROC curve plot
+    roc_curve_path = "roc_curve.png"
+    plt.savefig(roc_curve_path)
+    plt.close()
+    
+    # Log ROC curve and AUC
+    mlflow.log_metric("auc", roc_auc)
+    mlflow.log_artifact(roc_curve_path)
+    print(f"ROC curve and AUC logged. AUC = {roc_auc:.2f}")
+
+# Function to generate requirements.txt
+def generate_requirements():
+    requirements_path = "requirements.txt"
+    with open(requirements_path, "w") as f:
+        subprocess.run(["pip", "freeze"], stdout=f)
+    return requirements_path
+
+
+
