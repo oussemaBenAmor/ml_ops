@@ -6,10 +6,18 @@ import numpy as np
 import mlflow
 import mlflow.sklearn
 import matplotlib.pyplot as plt
-import subprocess 
+import subprocess
 import seaborn as sns
 import psutil  # For system metrics
-from sklearn.metrics import roc_curve, auc, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import (
+    roc_curve,
+    auc,
+    confusion_matrix,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+)
 from sklearn.svm import SVC
 from model_pipeline import (
     prepare_data,
@@ -18,14 +26,14 @@ from model_pipeline import (
     save_model,
     load_model,
     evaluate_model,
-    log_system_metrics,
+    log_system_metrics_function,
     log_roc_auc,
-    generate_requirements,
-    
 )
 from sklearn.model_selection import GridSearchCV
 from datetime import datetime
 import subprocess  # For generating requirements.txt
+
+mlflow.enable_system_metrics_logging()
 
 # Set MLflow tracking URI and experiment
 mlflow.set_tracking_uri("http://localhost:5001")
@@ -41,17 +49,23 @@ X_train_file = "X_train.csv"
 X_test_file = "X_test.csv"
 y_train_file = "y_train.csv"
 y_test_file = "y_test.csv"
+requirements_file = "requirements.txt"
 
 # Parse command-line arguments
-parser = argparse.ArgumentParser(description="Train, evaluate, and improve an SVM model.")
+parser = argparse.ArgumentParser(
+    description="Train, evaluate, and improve an SVM model."
+)
 parser.add_argument("--prepare", action="store_true", help="Prepare and save data")
 parser.add_argument("--train", action="store_true", help="Train the model")
 parser.add_argument("--evaluate", action="store_true", help="Evaluate the model")
 parser.add_argument("--improve", action="store_true", help="Improve the model")
 parser.add_argument("--save", action="store_true", help="Save the model")
-parser.add_argument("--load", action="store_true", help="Load the saved model and evaluate")
+parser.add_argument(
+    "--load", action="store_true", help="Load the saved model and evaluate"
+)
 
 args = parser.parse_args()
+
 
 # Function to log system metrics
 # Function to log data files as artifacts
@@ -60,26 +74,27 @@ def log_data_files():
     mlflow.log_artifact(X_test_file)
     mlflow.log_artifact(y_train_file)
     mlflow.log_artifact(y_test_file)
+    mlflow.log_artifact(requirements_file)
     print("Data files logged as artifacts.")
-
 
 
 # Data preparation logic
 if args.prepare:
     mlflow.end_run()
-    with mlflow.start_run(run_name="SVM_Preparing_Data"):
+    with mlflow.start_run(
+        run_name="SVM_Preparing_Data", log_system_metrics=True
+    ) as run:
         scaler, label_encoders = prepare_data(train_path, test_path)
         print("Data preparation completed and saved.")
-
-        # Generate and log requirements.txt
-        requirements_path = generate_requirements()
-        mlflow.log_artifact(requirements_path)
-        print("requirements.txt logged as artifact.")
+        run_id = run.info.run_id  # Get the run ID
+        print(f"Run ID: {run_id}")
+        # log_system_metrics=True
+        # print(mlflow.MlflowClient().get_run(run.info.run_id).data)
 
         # Log data files
         log_data_files()
 
-        log_system_metrics()  # Log system metrics
+        log_system_metrics_function()  # Log system metrics
 
 # Check if prepared data exists before proceeding with other steps
 if os.path.exists(X_train_file) and os.path.exists(X_test_file):
@@ -95,24 +110,30 @@ else:
 svm_model = None
 
 
-
 # Training logic
 if args.train:
     mlflow.end_run()
-    with mlflow.start_run(run_name="SVM_Training"):
+    with mlflow.start_run(run_name="SVM_Training", log_system_metrics=True) as run:
         print("Training the model...")
         X_train_st = pd.read_csv(X_train_file).values
         y_train = pd.read_csv(y_train_file).values.ravel()
 
         svm_model = train_model(X_train_st, y_train)
         save_model(svm_model)
+        run_id = run.info.run_id  # Get the run ID
+        print(f"Run ID: {run_id}")
 
         # Log model parameters
         mlflow.log_param("model_type", "SVM")
         mlflow.log_param("kernel", "default")  # Default kernel for initial training
         mlflow.log_param("training_data", train_path)
-        log_system_metrics()  # Log system metrics
+        log_system_metrics_function()  # Log system metrics
         log_data_files()
+        # Register the model in the Model Registry
+        model_uri = f"runs:/{run_id}/model"
+        model_name = "Churn_Prediction_Model"
+        mlflow.register_model(model_uri, model_name)
+        print(f"Model registered as '{model_name}'.")
 
         print("Model training complete.")
 
@@ -122,14 +143,20 @@ if args.evaluate:
         print("No trained model available. Run training first.")
     else:
         mlflow.end_run()  # End any existing run
-        with mlflow.start_run(run_name="SVM_Evaluation"):  # Start a new run
+        with mlflow.start_run(
+            run_name="SVM_Evaluation", log_system_metrics=True
+        ) as run:  # Start a new run
             loaded_model = load_model(deployment=None)
+            run_id = run.info.run_id  # Get the run ID
+            print(f"Run ID: {run_id}")
             print("Evaluating the model...")
             X_test_st = pd.read_csv(X_test_file).values
             y_test = pd.read_csv(y_test_file).values.ravel()
 
             # Evaluate the model and log metrics
-            accuracy, precision, recall, f1, cm = evaluate_model(loaded_model, X_test_st, y_test)
+            accuracy, precision, recall, f1, cm = evaluate_model(
+                loaded_model, X_test_st, y_test
+            )
 
 # Improvement logic
 if args.improve:
@@ -137,7 +164,9 @@ if args.improve:
         print("No trained model available. Run training first.")
     else:
         mlflow.end_run()
-        with mlflow.start_run(run_name="SVM_Improvement"):
+        with mlflow.start_run(
+            run_name="SVM_Improvement", log_system_metrics=True
+        ) as run:
             print("Improving the model...")
             X_train_st = pd.read_csv(X_train_file).values
             X_test_st = pd.read_csv(X_test_file).values
@@ -145,12 +174,15 @@ if args.improve:
             y_test = pd.read_csv(y_test_file).values.ravel()
 
             # Improve the model
-            best_model, best_params = improve_model(X_train_st, y_train, X_test_st, y_test)
+            best_model, best_params = improve_model(
+                X_train_st, y_train, X_test_st, y_test
+            )
             svm_model = best_model
+            run_id = run.info.run_id
 
             # Log best hyperparameters
             mlflow.log_params(best_params)
-            log_system_metrics()  # Log system metrics
+            log_system_metrics_function()  # Log system metrics
             log_data_files()
 
             # Evaluate the improved model and log artifacts
@@ -158,6 +190,11 @@ if args.improve:
 
             # Save the improved model
             save_model(svm_model)
+            # Register the model in the Model Registry
+            model_uri = f"runs:/{run_id}/model"
+            model_name = "Churn_Prediction_Model"
+            mlflow.register_model(model_uri, model_name)
+            print(f"Model registered as '{model_name}'.")
 
 # Save logic
 if args.save:
@@ -165,22 +202,26 @@ if args.save:
         print("No trained model available to save.")
     else:
         mlflow.end_run()
-        with mlflow.start_run(run_name="SVM_Saving"):
+        with mlflow.start_run(run_name="SVM_Saving", log_system_metrics=True) as run:
             print("Saving the model...")
             save_model(svm_model)
             mlflow.sklearn.log_model(svm_model, "final_saved_model")
             log_data_files()
-            log_system_metrics()  # Log system metrics
+            log_system_metrics_function()
+            run_id = run.info.run_id  # Log system metrics
 
 # Load and evaluate saved model
 if args.load:
     if os.path.exists(model_path):
         mlflow.end_run()
-        with mlflow.start_run(run_name="SVM_Loading_Evaluation"):
+        with mlflow.start_run(
+            run_name="SVM_Loading_Evaluation", log_system_metrics=True
+        ) as run:
             print("Loading the saved model...")
             loaded_model = load_model(deployment=None)
             X_test_st = pd.read_csv(X_test_file).values
             y_test = pd.read_csv(y_test_file).values.ravel()
+            run_id = run.info.run_id
 
             evaluate_model(loaded_model, X_test_st, y_test)
     else:

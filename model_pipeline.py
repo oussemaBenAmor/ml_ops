@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 import statsmodels.api as sm
-import subprocess 
+import subprocess
 import psutil
 from sklearn.svm import SVC
 from sklearn.metrics import (
@@ -38,10 +38,9 @@ import seaborn as sns
 import psutil  # For system metrics
 
 
-
-
 from datetime import datetime
 import subprocess  # For generating requirements.txt
+
 
 def prepare_data(train_path, test_path):
 
@@ -87,7 +86,7 @@ def prepare_data(train_path, test_path):
     y_train.to_csv("y_train.csv", index=False)
     y_test.to_csv("y_test.csv", index=False)
     joblib.dump(scaler, "scaler.pkl")
-    return  scaler, label_encoders
+    return scaler, label_encoders
 
 
 def cap_outliers(data, col_num):
@@ -155,11 +154,18 @@ def evaluate_model(model, X_test, y_test, model_name="model"):
     print(f"Model logged as artifact with name: {model_name}")
 
     # Log system metrics in the System Metrics page
-    log_system_metrics()
+    log_system_metrics_function()
 
     # Log confusion matrix as an artifact
     plt.figure(figsize=(8, 6))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Negative", "Positive"], yticklabels=["Negative", "Positive"])
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt="d",
+        cmap="Blues",
+        xticklabels=["Negative", "Positive"],
+        yticklabels=["Negative", "Positive"],
+    )
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
     plt.title("Confusion Matrix")
@@ -184,6 +190,7 @@ def evaluate_model(model, X_test, y_test, model_name="model"):
         print(f"Error logging metrics: {e}")
 
     return accuracy, precision, recall, f1, cm
+
 
 def improve_model(X_train, y_train, X_test, y_test):
 
@@ -237,13 +244,14 @@ def improve_model(X_train, y_train, X_test, y_test):
     print("Recall:", recall_score(y_test, y_pred_best_svm, zero_division=1))
     print("F1 Score:", f1_score(y_test, y_pred_best_svm, zero_division=1))
 
-    return best_svm , best_params
+    return best_svm, best_params
 
 
 def save_model(model, filename="best_svm_model.pkl"):
 
     joblib.dump(model, filename)
     print(f" Model saved in file :: '{filename}'.")
+
 
 """
 def load_model(filename="best_svm_model.pkl"):
@@ -252,17 +260,18 @@ def load_model(filename="best_svm_model.pkl"):
     print(f" Model loaded from '{filename}'.")
     return model
 """
-    
+
+
 def load_model(deployment):
-    
+
     model = None  # Initialize model as None
     training_runs = None
     experiment_name = "Churn_Prediction_Experiment"
 
-# Get the experiment by name
+    # Get the experiment by name
     experiment = mlflow.get_experiment_by_name(experiment_name)
 
-# Check if the experiment exists
+    # Check if the experiment exists
     if experiment:
         experiment_id = experiment.experiment_id
         print(f"Experiment ID for '{experiment_name}': {experiment_id}")
@@ -314,10 +323,11 @@ def load_model(deployment):
         print("No matching run found in the default experiment.")
 
     return model
-    
-    
+
 
 mlflow.set_tracking_uri("http://localhost:5001")
+
+
 def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
     # Set the experiment name
     mlflow.set_experiment("Churn_Prediction_Experiment")
@@ -334,15 +344,15 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
 
     # Initialize and train the SVM model
     model = SVC(
-        C=C, 
-        kernel=kernel, 
-        degree=degree, 
-        gamma=gamma, 
+        C=C,
+        kernel=kernel,
+        degree=degree,
+        gamma=gamma,
         coef0=coef0,  # Add coef0 here
-        random_state=random_state
+        random_state=random_state,
     )
     model.fit(x_train, y_train)
-    
+
     # Evaluate the model
     y_pred = model.predict(x_test)
     accuracy = accuracy_score(y_test, y_pred)
@@ -351,14 +361,21 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
     f1 = f1_score(y_test, y_pred)
 
     # Log metrics and parameters to MLflow
-    with mlflow.start_run(run_name="new trained model"):
+    with mlflow.start_run(run_name="new trained model", log_system_metrics=True) as run:
         # Log hyperparameters
+        run_id = run.info.run_id  # Get the run ID
+        print(f"Run ID: {run_id}")
         mlflow.log_param("C", C)
         mlflow.log_param("kernel", kernel)
         mlflow.log_param("degree", degree)
         mlflow.log_param("gamma", gamma)
         mlflow.log_param("coef0", coef0)  # Log coef0
         mlflow.log_param("random_state", random_state)
+        # Register the model in the Model Registry
+        model_uri = f"runs:/{run_id}/model"
+        model_name = "Churn_Prediction_Model"
+        mlflow.register_model(model_uri, model_name)
+        print(f"Model registered as '{model_name}'.")
 
         # Log model to MLflow
         mlflow.sklearn.log_model(model, "model")
@@ -371,61 +388,49 @@ def retraine_svm(C, kernel, degree, gamma, coef0, random_state):
 
     # Define the local storage path
 
-
-
-
-
     # Save the model locally to the specified path
-    dump(model,  "svm_model.joblib")
+    dump(model, "svm_model.joblib")
 
     # Return response
     return accuracy, precision, recall, f1
-    
-    
-    
-    
-    
-def log_system_metrics():
+
+
+def log_system_metrics_function():
     cpu_usage = psutil.cpu_percent()
     memory_usage = psutil.virtual_memory().percent
     mlflow.log_metric("cpu_usage", cpu_usage)
     mlflow.log_metric("memory_usage", memory_usage)
-    print(f"Logged system metrics: CPU Usage = {cpu_usage}%, Memory Usage = {memory_usage}%")
+    print(
+        f"Logged system metrics: CPU Usage = {cpu_usage}%, Memory Usage = {memory_usage}%"
+    )
+
 
 # Function to log ROC curve and AUC
 def log_roc_auc(model, X_test, y_test):
     # Get predicted probabilities for the positive class
     y_pred_proba = model.decision_function(X_test)
-    
+
     # Compute ROC curve and AUC
     fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
     roc_auc = auc(fpr, tpr)
-    
+
     # Plot ROC curve
     plt.figure()
-    plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.2f})')
-    plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver Operating Characteristic (ROC) Curve')
+    plt.plot(
+        fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (AUC = {roc_auc:.2f})"
+    )
+    plt.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title("Receiver Operating Characteristic (ROC) Curve")
     plt.legend(loc="lower right")
-    
+
     # Save ROC curve plot
     roc_curve_path = "roc_curve.png"
     plt.savefig(roc_curve_path)
     plt.close()
-    
+
     # Log ROC curve and AUC
     mlflow.log_metric("auc", roc_auc)
     mlflow.log_artifact(roc_curve_path)
     print(f"ROC curve and AUC logged. AUC = {roc_auc:.2f}")
-
-# Function to generate requirements.txt
-def generate_requirements():
-    requirements_path = "requirements.txt"
-    with open(requirements_path, "w") as f:
-        subprocess.run(["pip", "freeze"], stdout=f)
-    return requirements_path
-
-
-
