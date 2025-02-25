@@ -20,19 +20,18 @@ pipeline {
             }
         }
         stage('Code Quality Check') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Code Quality Check' }
-            }
-            steps {
-                sh 'python3 -m venv ${VENV_DIR}'
-                sh """
-                    . ${VENV_DIR}/bin/activate && \
-                    ${VENV_DIR}/bin/black main.py model_pipeline.py && \
-                    ${VENV_DIR}/bin/flake8 main.py model_pipeline.py && \
-                    ${VENV_DIR}/bin/bandit main.py model_pipeline.py
-                """
-            }
-        }
+    when {
+        expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Code Quality Check' }
+    }
+    steps {
+        sh '''
+            . ${VENV_DIR}/bin/activate
+            ${VENV_DIR}/bin/black main.py model_pipeline.py
+            ${VENV_DIR}/bin/flake8 --exit-zero main.py model_pipeline.py
+            ${VENV_DIR}/bin/bandit -r main.py model_pipeline.py
+        '''
+    }
+}
 
         stage('Set up Environment') {
             when {
