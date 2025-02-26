@@ -4,6 +4,7 @@ import pandas as pd
 import joblib
 import numpy as np
 import mlflow
+import pynvml
 import mlflow.sklearn
 import matplotlib.pyplot as plt
 import subprocess 
@@ -28,7 +29,17 @@ from datetime import datetime
 
 
 mlflow.enable_system_metrics_logging()
-os.environ["MLFLOW_DISABLE_GPU_METRICS"] = "true"
+# Initialize NVML (NVIDIA Management Library)
+pynvml.nvmlInit()
+
+# Get handle for the first GPU (index 0)
+handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+
+# Print the name of the GPU
+print(f"GPU Name: {pynvml.nvmlDeviceGetName(handle)}")
+
+# Shutdown NVML
+pynvml.nvmlShutdown()
 
 
 # Set MLflow tracking URI and experiment
