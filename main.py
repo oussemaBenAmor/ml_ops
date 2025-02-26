@@ -136,13 +136,14 @@ if args.train:
 
 # Evaluation logic
 if args.evaluate:
+    svm_model=load_model(deployment=None)
     if svm_model is None:
         print("No trained model available. Run training first.")
     else:
         mlflow.end_run()  # End any existing run
         with mlflow.start_run(
             run_name="SVM_Evaluation", log_system_metrics=True) as run:  # Start a new run
-            loaded_model = load_model(deployment=None)
+            #loaded_model = load_model(deployment=None)
             run_id = run.info.run_id  # Get the run ID
             print(f"Run ID: {run_id}")
             log_data_files()
@@ -152,11 +153,12 @@ if args.evaluate:
 
             # Evaluate the model and log metrics
             accuracy, precision, recall, f1, cm = evaluate_model(
-                loaded_model, X_test_st, y_test
+                svm_model, X_test_st, y_test
             )
 
 # Improvement logic
 if args.improve:
+    svm_model=load_model(deployment=None)
     if svm_model is None:
         print("No trained model available. Run training first.")
     else:
@@ -199,26 +201,25 @@ if args.save:
         print("No trained model available to save.")
     else:
         mlflow.end_run()
-        with mlflow.start_run(run_name="SVM_Saving", log_system_metrics=True) as run:
+        with mlflow.start_run(run_name="SVM_Saving"):
             print("Saving the model...")
             save_model(svm_model)
-            mlflow.sklearn.log_model(svm_model, "final_saved_model")
+            mlflow.sklearn.log_model(svm_model, "model")
             log_data_files()
             log_system_metrics_function()
-            run_id = run.info.run_id  # Log system metrics
+
 
 # Load and evaluate saved model
 if args.load:
     if os.path.exists(model_path):
         mlflow.end_run()
         with mlflow.start_run(
-            run_name="SVM_Loading_Evaluation", log_system_metrics=True
-        ) as run:
+            run_name="SVM_Loading_Evaluation"):
             print("Loading the saved model...")
             loaded_model = load_model(deployment=None)
             X_test_st = pd.read_csv(X_test_file).values
             y_test = pd.read_csv(y_test_file).values.ravel()
-            run_id = run.info.run_id
+            
 
             evaluate_model(loaded_model, X_test_st, y_test)
     else:
