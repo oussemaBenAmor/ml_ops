@@ -38,6 +38,7 @@ train_path = "churn-bigml-80.csv"
 test_path = "churn-bigml-20.csv"
 model_path = "best_svm_model.pkl"
 
+
 # Define prepared data file paths
 X_train_file = "X_train.csv"
 X_test_file = "X_test.csv"
@@ -59,7 +60,14 @@ parser.add_argument(
 )
 
 args = parser.parse_args()
-
+        
+def log_data_files():
+    mlflow.log_artifact(X_train_file)
+    mlflow.log_artifact(X_test_file)
+    mlflow.log_artifact(y_train_file)
+    mlflow.log_artifact(y_test_file)
+    mlflow.log_artifact(requirements_file)
+    print("Data files logged as artifacts.")   
 
 
 
@@ -231,11 +239,4 @@ if args.load:
         
         
         
-        
-def log_data_files():
-    mlflow.log_artifact(X_train_file)
-    mlflow.log_artifact(X_test_file)
-    mlflow.log_artifact(y_train_file)
-    mlflow.log_artifact(y_test_file)
-    mlflow.log_artifact(requirements_file)
-    print("Data files logged as artifacts.")        
+     
