@@ -28,6 +28,8 @@ from datetime import datetime
 
 
 mlflow.enable_system_metrics_logging()
+os.environ["MLFLOW_DISABLE_GPU_METRICS"] = "true"
+
 
 # Set MLflow tracking URI and experiment
 mlflow.set_tracking_uri("http://localhost:5001")
@@ -139,11 +141,11 @@ if args.evaluate:
     else:
         mlflow.end_run()  # End any existing run
         with mlflow.start_run(
-            run_name="SVM_Evaluation", log_system_metrics=True
-        ) as run:  # Start a new run
+            run_name="SVM_Evaluation", log_system_metrics=True) as run:  # Start a new run
             loaded_model = load_model(deployment=None)
             run_id = run.info.run_id  # Get the run ID
             print(f"Run ID: {run_id}")
+            log_data_files()
             print("Evaluating the model...")
             X_test_st = pd.read_csv(X_test_file).values
             y_test = pd.read_csv(y_test_file).values.ravel()
@@ -178,7 +180,7 @@ if args.improve:
             # Log best hyperparameters
             mlflow.log_params(best_params)
             log_system_metrics_function()  # Log system metrics
-            log_data_files()
+            
 
             # Evaluate the improved model and log artifacts
             evaluate_model(svm_model, X_test_st, y_test, model_name="model")

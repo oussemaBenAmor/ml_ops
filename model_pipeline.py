@@ -186,7 +186,7 @@ def evaluate_model(model, X_test, y_test, model_name="model"):
         mlflow.log_metric("recall", recall)
         mlflow.log_metric("f1_score", f1)
         print("Evaluation metrics logged.")
-        log_data_files()
+        
     except Exception as e:
         print(f"Error logging metrics: {e}")
 

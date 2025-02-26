@@ -32,4 +32,4 @@ seaborn==0.13.2
 statsmodels==0.14.4
 
 uvicorn==0.34.0
-
+pynvml==8.0.1
