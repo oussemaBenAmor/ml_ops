@@ -407,13 +407,7 @@ def log_system_metrics_function():
 
 
 
-def log_data_files():
-    mlflow.log_artifact(X_train_file)
-    mlflow.log_artifact(X_test_file)
-    mlflow.log_artifact(y_train_file)
-    mlflow.log_artifact(y_test_file)
-    mlflow.log_artifact(requirements_file)
-    print("Data files logged as artifacts.")
+
 
 
 # Function to log ROC curve and AUC

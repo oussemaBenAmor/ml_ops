@@ -213,3 +213,29 @@ if args.load:
             evaluate_model(loaded_model, X_test_st, y_test)
     else:
         print("No saved model found. Train and save a model first.")
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+def log_data_files():
+    mlflow.log_artifact(X_train_file)
+    mlflow.log_artifact(X_test_file)
+    mlflow.log_artifact(y_train_file)
+    mlflow.log_artifact(y_test_file)
+    mlflow.log_artifact(requirements_file)
+    print("Data files logged as artifacts.")        
