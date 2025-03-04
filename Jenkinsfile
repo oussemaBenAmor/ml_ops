@@ -4,6 +4,7 @@ pipeline {
     environment {
         VENV_DIR = 'venv'  
         MODEL_PATH = "best_svm_model.pkl"
+        DOCKER_IMAGE = 'benamoroussema/mlops_app:latest'  // Docker image name
     }
 
     parameters {
@@ -19,19 +20,20 @@ pipeline {
                 git branch: 'main', url:'https://github.com/oussemaBenAmor/ml_ops.git' 
             }
         }
+
         stage('Code Quality Check') {
-    when {
-        expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Code Quality Check' }
-    }
-    steps {
-        sh '''
-            . ${VENV_DIR}/bin/activate
-            ${VENV_DIR}/bin/black main.py model_pipeline.py
-            ${VENV_DIR}/bin/flake8 --exit-zero main.py model_pipeline.py
-            ${VENV_DIR}/bin/bandit --exit-zero main.py model_pipeline.py
-        '''
-    }
-}
+            when {
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Code Quality Check' }
+            }
+            steps {
+                sh '''
+                    . ${VENV_DIR}/bin/activate
+                    ${VENV_DIR}/bin/black main.py model_pipeline.py
+                    ${VENV_DIR}/bin/flake8 --exit-zero main.py model_pipeline.py
+                    ${VENV_DIR}/bin/bandit --exit-zero main.py model_pipeline.py
+                '''
+            }
+        }
 
         stage('Set up Environment') {
             when {
@@ -87,6 +89,20 @@ pipeline {
                 sh '. ${VENV_DIR}/bin/activate && python main.py --improve'
             }
         }
+        
+        
+        // Docker Run stage
+        stage('Docker Run') {
+            when {
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
+            }
+            steps {
+                script {
+                    echo "Running Docker container..."
+                    sh 'docker run --gpus all -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}'
+                }
+            }
+        }
 
         stage('Deploy API') {
             when {
@@ -97,6 +113,35 @@ pipeline {
                 sh '. ${VENV_DIR}/bin/activate && python app.py'
             }
         }
-         
+        
+        // Docker Build stage
+        stage('Docker Build') {
+            when {
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Build' }
+            }
+            steps {
+                script {
+                    echo "Building Docker image..."
+                    sh 'docker build -t ${DOCKER_IMAGE} .'
+                }
+            }
+        }
+
+        // Docker Push stage
+        stage('Docker Push') {
+            when {
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Push' }
+            }
+            steps {
+                script {
+                    echo "Pushing Docker image to Docker Hub..."
+                    sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
+                    sh 'docker push ${DOCKER_IMAGE}'
+                }
+            }
+        }
+
+        
     }
 }
+
