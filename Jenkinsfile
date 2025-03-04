@@ -104,8 +104,8 @@ pipeline {
                     fi
                     . ${VENV_DIR}/bin/activate
                     # Ensure the container doesn't already exist
-                    docker stop mlops || true
-                    docker rm mlops || true
+                    docker stop mlops_container || true
+                    docker rm mlops_container || true
                     
                     # Now run the Docker container
                     docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
