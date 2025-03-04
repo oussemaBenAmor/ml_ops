@@ -17,7 +17,7 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Checkout Code' }
             }
             steps {
-                git branch: 'main', url:'https://github.com/oussemaBenAmor/ml_ops.git' 
+                git branch: 'main', url: 'https://github.com/oussemaBenAmor/ml_ops.git' 
             }
         }
 
@@ -50,24 +50,37 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
             }
             steps {
-                sh '''
-                    # Find the process using port 5001
-                    PID=$(lsof -t -i :5001 || true)
-                    # If a process is found, kill it
-                    if [ -n "$PID" ]; then
-                        kill -9 $PID
-                    fi
-                    . ${VENV_DIR}/bin/activate
-                    # Ensure the container doesn't already exist
-                    docker stop mlops_container || true
-                    docker rm mlops_container || true
-                    
-                    # Now run the Docker container
-                    docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
-                '''
+                script {
+                    echo "Stopping and removing existing Docker container if exists..."
+                    sh '''
+                        # Kill any process running on port 5001 (MLflow)
+                        PID=$(lsof -t -i :5001 || true)
+                        if [ -n "$PID" ]; then
+                            kill -9 $PID
+                        fi
+
+                        # Kill any process running on port 5000 (Flask)
+                        PID=$(lsof -t -i :5000 || true)
+                        if [ -n "$PID" ]; then
+                            kill -9 $PID
+                        fi
+
+                        # Ensure the container doesn't already exist
+                        docker stop mlops_container || true
+                        docker rm mlops_container || true
+
+                        # Run Docker container
+                        docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
+
+                        # Wait for a few seconds to allow Flask and MLflow to initialize
+                        sleep 10
+                    '''
+                    echo "Docker container started. Checking logs..."
+                    sh 'docker logs mlops_container'
+                }
             }
         }
-        
+
         stage('Prepare Data') {
             when {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Prepare Data' }
@@ -94,7 +107,7 @@ pipeline {
                 sh '. ${VENV_DIR}/bin/activate && python main.py --evaluate'
             }
         }
-        
+
         stage('Improve Model') {
             when {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Improve Model' }
@@ -103,12 +116,6 @@ pipeline {
                 sh '. ${VENV_DIR}/bin/activate && python main.py --improve'
             }
         }
-        
-       
-
-        
-        
-    
     }
 }
 
