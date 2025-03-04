@@ -93,16 +93,23 @@ pipeline {
         
         // Docker Run stage
         stage('Docker Run') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
-            }
-            steps {
-                script {
-                    echo "Running Docker container..."
-                    sh 'docker run --gpus all -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}'
-                }
-            }
+    when {
+        expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
+    }
+    steps {
+        script {
+            echo "Checking if a container named ${DOCKER_IMAGE} is already running..."
+            // Stopping and removing the container if it's running
+            sh '''
+                echo "Stopping and removing any existing container named mlops_container..."
+                docker stop mlops_container || true
+                docker rm mlops_container || true
+                echo "Starting a new container..."
+                docker run --gpus all -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
+            '''
         }
+    }
+}
 
         stage('Deploy API') {
             when {
