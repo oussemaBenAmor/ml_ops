@@ -14,5 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 5000 5001
 
 # Définir la commande de démarrage pour exécuter Flask et MLflow en parallèle
-CMD ["sh", "-c", "mlflow ui --host 0.0.0.0 --port 5001 & exec python app.py"]
+CMD ["sh", "-c", "mlflow ui --host 0.0.0.0 --port 5001 & python app.py"]
 
