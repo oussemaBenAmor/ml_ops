@@ -4,7 +4,7 @@ pipeline {
     environment {
         VENV_DIR = 'venv'  
         MODEL_PATH = "best_svm_model.pkl"
-        DOCKER_IMAGE = 'benamoroussema/mlops_app:latest'  // Docker image name
+        DOCKER_IMAGE = 'benamoroussema/mlops_app:latest' // Docker image name
     }
 
     parameters {
@@ -50,34 +50,29 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
             }
             steps {
-                script {
+                sh '''
+                    export VENV_DIR='/mnt/c/Users/MSI/Desktop/ml_ops/ml/project/venv'
+                    export PATH=${VENV_DIR}/bin:$PATH
+
                     echo "Stopping and removing existing Docker container if exists..."
-                    sh '''
-                        # Kill any process running on port 5001 (MLflow)
-                        PID=$(lsof -t -i :5001 || true)
-                        if [ -n "$PID" ]; then
-                            kill -9 $PID
-                        fi
 
-                        # Kill any process running on port 5000 (Flask)
-                        PID=$(lsof -t -i :5000 || true)
-                        if [ -n "$PID" ]; then
-                            kill -9 $PID
-                        fi
+                    # Kill any process running on port 5001 (MLflow)
+                    PID=$(lsof -t -i :5001 || true)
+                    if [ -n "$PID" ]; then
+                        kill -9 $PID
+                    fi
 
-                        # Ensure the container doesn't already exist
-                        docker stop mlops_container || true
-                        docker rm mlops_container || true
+                    . ${VENV_DIR}/bin/activate
+                    
+                    # Ensure the container doesn't already exist
+                    docker stop mlops_container || true
+                    docker rm mlops_container || true
 
-                        # Run Docker container
-                        docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
-
-                        # Wait for a few seconds to allow Flask and MLflow to initialize
-                        sleep 10
-                    '''
-                    echo "Docker container started. Checking logs..."
-                    sh 'docker logs mlops_container'
-                }
+                    # Run Docker container
+                    docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
+                '''
+                echo "Docker container started. Checking logs..."
+                sh 'docker logs mlops_container'
             }
         }
 
@@ -95,7 +90,11 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Train Model' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && python main.py --train'
+                sh '''
+                    export VENV_DIR='/mnt/c/Users/MSI/Desktop/ml_ops/ml/project/venv'
+                    export PATH=${VENV_DIR}/bin:$PATH
+                    . ${VENV_DIR}/bin/activate && python main.py --train
+                '''
             }
         }
 
@@ -104,7 +103,11 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Evaluate Model' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && python main.py --evaluate'
+                sh '''
+                    export VENV_DIR='/mnt/c/Users/MSI/Desktop/ml_ops/ml/project/venv'
+                    export PATH=${VENV_DIR}/bin:$PATH
+                    . ${VENV_DIR}/bin/activate && python main.py --evaluate
+                '''
             }
         }
 
@@ -113,7 +116,11 @@ pipeline {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Improve Model' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && python main.py --improve'
+                sh '''
+                    export VENV_DIR='/mnt/c/Users/MSI/Desktop/ml_ops/ml/project/venv'
+                    export PATH=${VENV_DIR}/bin:$PATH
+                    . ${VENV_DIR}/bin/activate && python main.py --improve
+                '''
             }
         }
     }
