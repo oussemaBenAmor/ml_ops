@@ -90,45 +90,39 @@ pipeline {
             }
         }
         
-        
-        
-         stage('Docker Run') {
-          when {
-            expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
-          }
-          steps {
-            sh '''
-                # Find the process using port 5001
-                PID=$(lsof -t -i :5001 || true)
-                # If a process is found, kill it
-                if [ -n "$PID" ]; then
-                    kill -9 $PID
-                fi
-                . ${VENV_DIR}/bin/activate
-                # Ensure the container doesn't already exist
-                docker stop mlops || true
-                docker rm mlops || true
-                
-                # Now run the Docker container
-                docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
-            '''
-          }
-      }
-
-        
-        
+        stage('Docker Run') {
+            when {
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
+            }
+            steps {
+                sh '''
+                    # Find the process using port 5001
+                    PID=$(lsof -t -i :5001 || true)
+                    # If a process is found, kill it
+                    if [ -n "$PID" ]; then
+                        kill -9 $PID
+                    fi
+                    . ${VENV_DIR}/bin/activate
+                    # Ensure the container doesn't already exist
+                    docker stop mlops || true
+                    docker rm mlops || true
+                    
+                    # Now run the Docker container
+                    docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
+                '''
+            }
+        }
 
         stage('Deploy API') {
             when {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Deploy API' }
             }
             steps {
-                 sh 'chmod -R 777 "/var/lib/jenkins/workspace/ml pipeline"'
+                sh 'chmod -R 777 "/var/lib/jenkins/workspace/ml pipeline"'
                 sh '. ${VENV_DIR}/bin/activate && python app.py'
             }
         }
         
-        // Docker Build stage
         stage('Docker Build') {
             when {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Build' }
@@ -141,7 +135,6 @@ pipeline {
             }
         }
 
-        // Docker Push stage
         stage('Docker Push') {
             when {
                 expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Push' }
@@ -154,8 +147,6 @@ pipeline {
                 }
             }
         }
-
-        
     }
 }
 
