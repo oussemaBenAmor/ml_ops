@@ -45,12 +45,26 @@ pipeline {
             }
         }
 
-        stage('Deploy mlflow') {
+        stage('Docker Run') {
             when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Deploy mlflow' }
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
             }
             steps {
-                sh '. ${VENV_DIR}/bin/activate && mlflow ui --host 0.0.0.0 --port 5001 & '
+                sh '''
+                    # Find the process using port 5001
+                    PID=$(lsof -t -i :5001 || true)
+                    # If a process is found, kill it
+                    if [ -n "$PID" ]; then
+                        kill -9 $PID
+                    fi
+                    . ${VENV_DIR}/bin/activate
+                    # Ensure the container doesn't already exist
+                    docker stop mlops_container || true
+                    docker rm mlops_container || true
+                    
+                    # Now run the Docker container
+                    docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
+                '''
             }
         }
         
@@ -90,55 +104,11 @@ pipeline {
             }
         }
         
-        stage('Docker Run') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Run' }
-            }
-            steps {
-                sh '''
-                    # Find the process using port 5001
-                    PID=$(lsof -t -i :5001 || true)
-                    # If a process is found, kill it
-                    if [ -n "$PID" ]; then
-                        kill -9 $PID
-                    fi
-                    . ${VENV_DIR}/bin/activate
-                    # Ensure the container doesn't already exist
-                    docker stop mlops_container || true
-                    docker rm mlops_container || true
-                    
-                    # Now run the Docker container
-                    docker run -d -p 5000:5000 -p 5001:5001 --name mlops_container ${DOCKER_IMAGE}
-                '''
-            }
-        }
+       
 
         
         
-        stage('Docker Build') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Build' }
-            }
-            steps {
-                script {
-                    echo "Building Docker image..."
-                    sh 'docker build -t ${DOCKER_IMAGE} .'
-                }
-            }
-        }
-
-        stage('Docker Push') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Push' }
-            }
-            steps {
-                script {
-                    echo "Pushing Docker image to Docker Hub..."
-                    sh 'docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD'
-                    sh 'docker push ${DOCKER_IMAGE}'
-                }
-            }
-        }
+    
     }
 }
 
