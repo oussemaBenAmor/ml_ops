@@ -113,15 +113,7 @@ pipeline {
             }
         }
 
-        stage('Deploy API') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Deploy API' }
-            }
-            steps {
-                sh 'chmod -R 777 "/var/lib/jenkins/workspace/ml pipeline"'
-                sh '. ${VENV_DIR}/bin/activate && python app.py'
-            }
-        }
+        
         
         stage('Docker Build') {
             when {
