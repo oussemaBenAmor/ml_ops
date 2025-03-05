@@ -44,6 +44,23 @@ pipeline {
                 sh '. ${VENV_DIR}/bin/activate && pip install -r requirements.txt'
             }
         }
+        stage('Docker Setup') {
+            when {
+                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Setup' }
+            }
+            steps {
+                script {
+                    // Running Docker Compose to start the services
+                    sh '''
+                        echo "Stopping and removing existing Docker containers if they exist..."
+                        docker-compose -f docker-compose.yml down || true  # Stop and remove existing containers
+
+                        echo "Starting Docker containers using docker-compose..."
+                        docker-compose -f docker-compose.yml up -d  # Start the containers in detached mode
+                    '''
+                }
+            }
+        }
 
         stage('Docker Run') {
             when {

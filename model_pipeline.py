@@ -15,6 +15,8 @@ from sklearn.metrics import (
     auc,
 )
 import mlflow
+from elasticsearch import Elasticsearch
+import json
 import mlflow.sklearn
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -37,11 +39,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import psutil  # For system metrics
 
-
+import json
+from datetime import datetime
+from elasticsearch import Elasticsearch
 
 
 from datetime import datetime
 
+es = Elasticsearch([{"host": "localhost", "port": 9200, "scheme": "http"}])
 
 def prepare_data(train_path, test_path):
 
@@ -123,6 +128,44 @@ def train_model(X_train, y_train):
     return svm_model
 
 
+
+
+
+
+# Assuming Elasticsearch is initialized elsewhere
+
+
+def log_to_elasticsearch(params=None, metrics=None, cm=None):
+    """
+    Logs the model parameters, metrics, and confusion matrix to Elasticsearch.
+
+    Args:
+        params (dict, optional): Dictionary containing model parameters. Defaults to None.
+        metrics (dict, optional): Dictionary containing evaluation metrics. Defaults to None.
+        cm (list, optional): Confusion matrix in list format. Defaults to None.
+    """
+    # Check if any of the inputs is empty
+    if (params is None or len(params) == 0) or (metrics is None or len(metrics) == 0) or (cm is None or len(cm) == 0):
+        print("No parameters, metrics, or confusion matrix to log.")
+        return
+
+    # Prepare the log data
+    log_data = {
+        "timestamp": datetime.now().isoformat(),
+        "params": params,
+        "metrics": metrics,
+        "confusion_matrix": cm.tolist()  
+    }
+
+    # Log to Elasticsearch
+    try:
+        response = es.index(index="mlflow-logs", body=json.dumps(log_data))
+        print("Model parameters, metrics, and confusion matrix sent to Elasticsearch.")
+        print("Elasticsearch response:", response)
+    except Exception as e:
+        print(f"Error sending logs to Elasticsearch: {e}")
+    
+
 def evaluate_model(model, X_test, y_test, model_name="model"):
     # Make predictions
     y_pred = model.predict(X_test)
@@ -176,7 +219,7 @@ def evaluate_model(model, X_test, y_test, model_name="model"):
     mlflow.log_artifact(cm_image_path)
     print(f"Confusion matrix image saved and logged as artifact: {cm_image_path}")
 
-    # Log ROC curve and AUC
+    # Log ROC curve and AUC (if you have this function defined)
     log_roc_auc(model, X_test, y_test)
 
     # Log evaluation metrics
@@ -189,14 +232,42 @@ def evaluate_model(model, X_test, y_test, model_name="model"):
         
     except Exception as e:
         print(f"Error logging metrics: {e}")
+        
+    metrics = {
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1
+    }
+
+    # Elasticsearch logging
+    params = {
+        "kernel": model_params.get("kernel") if "kernel" in model_params else None,
+        "C": model_params.get("C") if "C" in model_params else None,
+        "degree": model_params.get("degree") if "degree" in model_params else None,
+        "coef0": model_params.get("coef0") if "coef0" in model_params else None,
+        "gamma": model_params.get("gamma") if "gamma" in model_params else None,
+        "timestamp": datetime.utcnow().isoformat(),  # Convert datetime to string
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1,
+    }
+
+    try:
+        # Index into Elasticsearch
+        es.index(index="mlflow-logs", body=json.dumps({"params": params}))
+        print("Metrics and model parameters sent to Elasticsearch.")
+    except Exception as e:
+        print(f"Error sending logs to Elasticsearch: {e}")
 
     return accuracy, precision, recall, f1, cm
 
 
 def improve_model(X_train, y_train, X_test, y_test):
-
     print("# Tuning hyper-parameters for F1 Score")
 
+    # Define the hyperparameters to tune
     tuned_parameters = [
         {"kernel": ["linear"], "C": [0.1, 1, 10, 50], "coef0": [0, 0.5, 1]},
         {
@@ -220,30 +291,90 @@ def improve_model(X_train, y_train, X_test, y_test):
         },
     ]
 
-    # Recherche des meilleurs paramètres
+    # GridSearchCV for hyperparameter tuning
     clf = GridSearchCV(SVC(), tuned_parameters, scoring="f1", cv=5)
     clf.fit(X_train, y_train)
 
     print("Best Parameters:", clf.best_params_)
     print("Best Cross-Validation Score:", clf.best_score_)
 
-    # Meilleur modèle après GridSearchCV
+    # Best model after GridSearchCV
     best_svm = clf.best_estimator_
     best_params = clf.best_params_
 
-    # Prédiction avec le meilleur modèle
+    # Prediction with the best model
     y_pred_best_svm = best_svm.predict(X_test)
 
-    # Affichage de la matrice de confusion
+    # Confusion matrix
     cm = confusion_matrix(y_test, y_pred_best_svm)
     print("Confusion Matrix:")
     print(cm)
 
-    # Affichage des métriques
-    print("Accuracy:", accuracy_score(y_test, y_pred_best_svm))
-    print("Precision:", precision_score(y_test, y_pred_best_svm, zero_division=1))
-    print("Recall:", recall_score(y_test, y_pred_best_svm, zero_division=1))
-    print("F1 Score:", f1_score(y_test, y_pred_best_svm, zero_division=1))
+    # Calculate evaluation metrics
+    accuracy = accuracy_score(y_test, y_pred_best_svm)
+    precision = precision_score(y_test, y_pred_best_svm, zero_division=1)
+    recall = recall_score(y_test, y_pred_best_svm, zero_division=1)
+    f1 = f1_score(y_test, y_pred_best_svm, zero_division=1)
+
+    # Display metrics
+    print("Accuracy:", accuracy)
+    print("Precision:", precision)
+    print("Recall:", recall)
+    print("F1 Score:", f1)
+
+    # Log the metrics and confusion matrix to MLflow
+    try:
+        mlflow.log_params(best_params)  # Log best params from GridSearchCV
+        mlflow.log_metric("accuracy", accuracy)
+        mlflow.log_metric("precision", precision)
+        mlflow.log_metric("recall", recall)
+        mlflow.log_metric("f1_score", f1)
+        print("Metrics and model parameters logged to MLflow.")
+    except Exception as e:
+        print(f"Error logging to MLflow: {e}")
+
+    # Log the confusion matrix as an artifact
+    try:
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=["Negative", "Positive"],
+            yticklabels=["Negative", "Positive"],
+        )
+        plt.ylabel("True Label")
+        plt.xlabel("Predicted Label")
+        plt.title("Confusion Matrix")
+
+        cm_image_path = "confusion_matrix.png"
+        plt.savefig(cm_image_path)
+        mlflow.log_artifact(cm_image_path)
+        print(f"Confusion matrix image saved and logged as artifact: {cm_image_path}")
+    except Exception as e:
+        print(f"Error logging confusion matrix: {e}")
+
+    # Elasticsearch logging
+    params = {
+        "kernel": best_params.get("kernel"),
+        "C": best_params.get("C"),
+        "degree": best_params.get("degree"),
+        "coef0": best_params.get("coef0"),
+        "gamma": best_params.get("gamma"),
+        "timestamp": datetime.utcnow().isoformat(),  # Convert datetime to string
+        "accuracy": accuracy,
+        "precision": precision,
+        "recall": recall,
+        "f1_score": f1,
+    }
+
+    try:
+        # Index into Elasticsearch
+        es.index(index="mlflow-logs", body=json.dumps({"params": params}))
+        print("Metrics and model parameters sent to Elasticsearch.")
+    except Exception as e:
+        print(f"Error sending logs to Elasticsearch: {e}")
 
     return best_svm, best_params
 
