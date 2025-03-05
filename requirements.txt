@@ -33,5 +33,6 @@ statsmodels==0.14.4
 
 uvicorn==0.34.0
 
-elasticsearch
+elasticsearch==8.6.2
+
 
