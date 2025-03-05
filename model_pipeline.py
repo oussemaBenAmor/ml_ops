@@ -43,7 +43,7 @@ import json
 from datetime import datetime
 from elasticsearch import Elasticsearch
 
-
+mlflow.enable_system_metrics_logging()
 from datetime import datetime
 
 es = Elasticsearch([{"host": "localhost", "port": 9200, "scheme": "http"}])
