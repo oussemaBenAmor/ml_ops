@@ -52,7 +52,7 @@ pipeline {
                 script {
                     // Running Docker Compose to start the services
                     sh '''
-                        sudo apt-get update
+                        sudo apt-get update -y
                         sudo apt-get install -y docker-compose
                         echo "Stopping and removing existing Docker containers if they exist..."
                         docker-compose -f docker-compose.yml down || true  # Stop and remove existing containers
