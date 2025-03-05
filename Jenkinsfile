@@ -44,25 +44,31 @@ pipeline {
                 sh '. ${VENV_DIR}/bin/activate && pip install -r requirements.txt'
             }
         }
-        stage('Docker Setup') {
-            when {
-                expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Setup' }
-            }
-            steps {
-                script {
-                    // Running Docker Compose to start the services
-                    sh '''
-                        sudo apt-get update -y
-                        sudo apt-get install -y docker-compose
-                        echo "Stopping and removing existing Docker containers if they exist..."
-                        docker-compose -f docker-compose.yml down || true  # Stop and remove existing containers
+       stage('Docker Setup') {
+    when {
+        expression { params.RUN_STAGE == 'ALL' || params.RUN_STAGE == 'Docker Setup' }
+    }
+    steps {
+        script {
+            // Running Docker Compose to start the services
+            sh '''
+                sudo apt-get update -y
+                sudo apt-get install -y docker-compose
+                echo "Stopping and removing existing Docker containers if they exist..."
+                
+                # Remove all containers, even those that are stopped
+                docker rm -f $(docker ps -aq) || true  # Force remove all containers
 
-                        echo "Starting Docker containers using docker-compose..."
-                        docker-compose -f docker-compose.yml up -d  # Start the containers in detached mode
-                    '''
-                }
-            }
+                # Stop and remove existing containers with docker-compose
+                docker-compose -f docker-compose.yml down || true  # Stop and remove containers
+
+                echo "Starting Docker containers using docker-compose..."
+                docker-compose -f docker-compose.yml up -d  # Start the containers in detached mode
+            '''
         }
+    }
+}
+
 
         stage('Docker Run') {
             when {
